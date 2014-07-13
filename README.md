@@ -1,4 +1,6 @@
 suamd
 =====
 
-Simple usb auto mount daemon
+Simple usb auto mount daemon for GNU/Linux
+
+dependencies: libudev
