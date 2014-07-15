@@ -11,6 +11,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #define MOUNT_PREFIX "/media/"
@@ -113,28 +114,45 @@ void mount_device(struct udev_device *device, const char *mount_point)
 {
 	const char *devnode = udev_device_get_devnode(device);
 	const char *fs_type = udev_device_get_property_value(device, "ID_FS_TYPE");
-	mode_t umask_save;
+	int status = 0;
+	pid_t p;
+
 
 #ifdef USE_NTFS3G
-	if(strcmp(fstype, "ntfs") == 0)
+	if(strcmp(fs_type, "ntfs") == 0)
 		fs_type = NTFS3G_FS_TYPE;
 #endif
 
-	umask_save = umask(0);
-
-	if(mkdir(mount_point, S_IRWXU | S_IRWXG | S_IRWXO) == -1 && errno != EEXIST)
+	if(mkdir(mount_point, S_IRWXU | S_IRGRP | S_IXGRP) == -1 && errno != EEXIST)
 	{
 		error(0, errno, "Failed to create mount point %s", mount_point);
 	}
 	else
 	{
-		if(mount(devnode, mount_point, fs_type, 0, NULL) == -1)
-			error(0, errno, "Failed to mount %s on %s", devnode, mount_point);
+		p = fork();
+
+		if(p == -1)
+		{
+			perror("fork syscall error");
+			fprintf(stderr, "unplug and plug you device again to retry\n");
+			return;
+		}
+		else if(p == 0)
+		{
+			setuid(0);
+			execl("/sbin/mount", "/sbin/mount", "-t", fs_type, devnode,
+					mount_point, NULL);
+			perror("/sbin/mount");
+			exit(1);
+		}
+
+		wait(&status);
+
+		if(status != 0)
+			fprintf(stderr, "Failed to mount %s on %s", devnode, mount_point);
 		else
 			printf("Device %s successfuly mounted on %s\n", devnode, mount_point);
 	}
-
-	umask(umask_save);
 }
 
 void unmount_device(struct udev_device *device)
@@ -168,8 +186,6 @@ void unmount_device(struct udev_device *device)
 
 void create_prefix()
 {
-	mode_t umask_save = umask(0);
-
 	if(path_exist(MOUNT_PREFIX))
 		return;
 
@@ -181,8 +197,6 @@ void create_prefix()
 				MOUNT_PREFIX);
 		exit(EXIT_FAILURE);
 	}
-
-	umask(umask_save);
 }
 
 int main(void)
@@ -195,9 +209,12 @@ int main(void)
 
 	if(geteuid() != 0)
 	{
-		fprintf(stderr, "This program needs root privileges\n");
+		fprintf(stderr, "This program needs root privileges (make sure it is "
+				"installed with the setuid bit set)\n");
 		return 1;
 	}
+
+	umask(0);
 
 	udev = udev_new();
 
