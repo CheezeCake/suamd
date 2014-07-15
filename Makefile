@@ -19,7 +19,7 @@ mrproper: clean
 	rm -f suamd
 
 install: suamd
-	install -m 755 suamd $(PREFIX)/bin
+	install -m 4755 suamd $(PREFIX)/bin
 
 uninstall:
 	rm -f $(PREFIX)/bin/suamd
