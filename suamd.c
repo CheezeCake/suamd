@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #define MOUNT_PREFIX "/media/"
@@ -199,6 +200,16 @@ void create_prefix()
 	}
 }
 
+void time_log(FILE *out)
+{
+	time_t timev = time(NULL);
+	struct tm *t;
+
+	t = gmtime(&timev);
+	fprintf(out, "[%d/%.2d/%.2d %d:%d:%d] : ", t->tm_mday, t->tm_mon,
+			1900 + t->tm_year, t->tm_hour, t->tm_min, t->tm_sec);
+}
+
 int main(void)
 {
 	struct udev *udev;
@@ -245,6 +256,7 @@ int main(void)
 
 			if(strcmp("add", udev_device_get_action(udevice)) == 0)
 			{
+				time_log(stdout);
 				printf("[ADD] device %s added\n", dev_node);
 
 				mount_point = generate_mount_point(udevice);
@@ -262,6 +274,7 @@ int main(void)
 			}
 			else if(strcmp("remove", udev_device_get_action(udevice)) == 0)
 			{
+				time_log(stdout);
 				printf("[REMOVE] device %s removed\n", dev_node);
 				unmount_device(udevice);
 			}
