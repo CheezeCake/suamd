@@ -266,6 +266,8 @@ int main(void)
 				unmount_device(udevice);
 			}
 		}
+
+		sleep(1);
 	}
 
 	udev_monitor_unref(umon);
