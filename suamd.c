@@ -176,8 +176,10 @@ void unmount_device(struct udev_device *device)
 				printf("Device %s successfuly unmounted (mount point: %s)\n",
 						dev_node, mount_point);
 
+#ifdef REMOVE_MNTPOINT
 				if(rmdir(mount_point) == -1)
 					error(0, errno, "Failed to delete %s\n", mount_point);
+#endif
 			}
 
 			free(mount_point);
