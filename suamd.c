@@ -259,17 +259,21 @@ int main(void)
 				time_log(stdout);
 				printf("[ADD] device %s added\n", dev_node);
 
-				mount_point = generate_mount_point(udevice);
+				if(!is_mounted(dev_node, NULL))
+				{
+					mount_point = generate_mount_point(udevice);
 
-				if(mount_point)
-				{
-					mount_device(udevice, mount_point);
-					free(mount_point);
-				}
-				else
-				{
-					fprintf(stderr, "Failed to generate mount point for %s\n",
-							udev_device_get_devnode(udevice));
+					if(mount_point)
+					{
+						mount_device(udevice, mount_point);
+						free(mount_point);
+					}
+					else
+					{
+						fprintf(stderr,
+								"Failed to generate mount point for %s\n",
+								udev_device_get_devnode(udevice));
+					}
 				}
 			}
 			else if(strcmp("remove", udev_device_get_action(udevice)) == 0)
