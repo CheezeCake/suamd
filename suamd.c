@@ -2,6 +2,7 @@
 
 #include <error.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <libudev.h>
 #include <linux/limits.h>
 #include <mntent.h>
@@ -173,7 +174,7 @@ void unmount_device(struct udev_device *device)
 	}
 }
 
-void create_prefix()
+void create_prefix(void)
 {
 	if(path_exist(MOUNT_PREFIX))
 		return;
@@ -197,18 +198,42 @@ void time_log(FILE *out)
 			1900 + t->tm_year, t->tm_hour, t->tm_min, t->tm_sec);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
 	struct udev *udev;
 	struct udev_monitor *umon;
 	struct udev_device *udevice;
 	char *mount_point;
 	const char *dev_node;
+	int fd = -1;
 
 	if(geteuid() != 0) {
 		fprintf(stderr, "This program needs root privileges (make sure it is "
 				"installed with the setuid bit set)\n");
 		return 1;
+	}
+
+	/* daemonize */
+	if(argc == 2 && strcmp(argv[1], "-d") == 0) {
+		daemon(0, 0);
+
+		if((fd = open("/var/log/suamd", O_RDWR | O_APPEND | O_CREAT,
+						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1) {
+			perror("open");
+			return 3;
+		}
+
+		if(dup2(fd, STDOUT_FILENO) == -1) {
+			perror("dup");
+			return 3;
+		}
+
+		if(dup2(fd, STDERR_FILENO) == -1) {
+			perror("dup");
+			return 3;
+		}
+
+		close(fd);
 	}
 
 	umask(0);
@@ -238,7 +263,7 @@ int main(void)
 
 			if(strcmp("add", udev_device_get_action(udevice)) == 0) {
 				time_log(stdout);
-				printf("[ADD] device %s added\n", dev_node);
+				fprintf(stdout, "[ADD] device %s added\n", dev_node);
 
 				if(!is_mounted(dev_node, NULL)) {
 					mount_point = generate_mount_point(udevice);
@@ -266,6 +291,9 @@ int main(void)
 
 	udev_monitor_unref(umon);
 	udev_unref(udev);
+
+	if(fd != -1)
+		close(fd);
 
 	return 0;
 }
