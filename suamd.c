@@ -193,7 +193,7 @@ void time_log(FILE *out)
 	struct tm *t;
 
 	t = gmtime(&timev);
-	fprintf(out, "[%d/%.2d/%.2d %d:%d:%d] : ", t->tm_mday, t->tm_mon,
+	fprintf(out, "[%.2d/%.2d/%.2d %.2d:%.2d:%.2d] : ", t->tm_mday, t->tm_mon,
 			1900 + t->tm_year, t->tm_hour, t->tm_min, t->tm_sec);
 }
 
