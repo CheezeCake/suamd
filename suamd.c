@@ -6,6 +6,7 @@
 #include <libudev.h>
 #include <linux/limits.h>
 #include <mntent.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,8 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+#define LOGFILE "log"
 
 #define MOUNT_PREFIX "/media/"
 #define NTFS3G_FS_TYPE "ntfs-3g"
@@ -174,7 +177,7 @@ void unmount_device(struct udev_device *device)
 	}
 }
 
-void create_prefix(void)
+void create_prefix()
 {
 	if(path_exist(MOUNT_PREFIX))
 		return;
@@ -188,14 +191,53 @@ void create_prefix(void)
 	}
 }
 
-void time_log(FILE *out)
+void time_log(void)
 {
 	time_t timev = time(NULL);
 	struct tm *t;
 
 	t = gmtime(&timev);
-	fprintf(out, "[%d/%.2d/%.2d %d:%d:%d] : ", t->tm_mday, t->tm_mon,
+	printf("[%.2d/%.2d/%.2d %.2d:%.2d:%.2d] : ", t->tm_mday, t->tm_mon,
 			1900 + t->tm_year, t->tm_hour, t->tm_min, t->tm_sec);
+}
+
+void daemonize(void)
+{
+	int logfd;
+	pid_t pid;
+
+	pid = fork();
+	if(pid == -1) {
+		perror("daemonize");
+		exit(EXIT_FAILURE);
+	}
+	else if(pid != 0) {
+		_exit(0);
+	}
+
+	if(setsid() == -1) {
+		perror("setsid");
+		exit(EXIT_FAILURE);
+	}
+
+	umask(0);
+
+	close(STDIN_FILENO);
+	if(open("/dev/null", O_RDONLY) == -1) {
+		perror("stdin redirect");
+		exit(EXIT_FAILURE);
+	}
+
+	if((logfd = open(LOGFILE, O_CREAT | O_RDWR | O_APPEND,
+			S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)) == -1) {
+		perror("logfile");
+		exit(EXIT_FAILURE);
+	}
+
+	dup2(logfd, STDERR_FILENO);
+	dup2(logfd, STDOUT_FILENO);
+	close(logfd);
+
 }
 
 int main(int argc, char **argv)
@@ -205,7 +247,6 @@ int main(int argc, char **argv)
 	struct udev_device *udevice;
 	char *mount_point;
 	const char *dev_node;
-	int fd = -1;
 
 	if(geteuid() != 0) {
 		fprintf(stderr, "This program needs root privileges (make sure it is "
@@ -213,28 +254,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	/* daemonize */
-	if(argc == 2 && strcmp(argv[1], "-d") == 0) {
-		daemon(0, 0);
-
-		if((fd = open("/var/log/suamd", O_RDWR | O_APPEND | O_CREAT,
-						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1) {
-			perror("open");
-			return 3;
-		}
-
-		if(dup2(fd, STDOUT_FILENO) == -1) {
-			perror("dup");
-			return 3;
-		}
-
-		if(dup2(fd, STDERR_FILENO) == -1) {
-			perror("dup");
-			return 3;
-		}
-
-		close(fd);
-	}
+	if(argc == 2 && strcmp(argv[1], "-d") == 0)
+		daemonize();
 
 	umask(0);
 
@@ -262,8 +283,8 @@ int main(int argc, char **argv)
 			dev_node = udev_device_get_devnode(udevice);
 
 			if(strcmp("add", udev_device_get_action(udevice)) == 0) {
-				time_log(stdout);
-				fprintf(stdout, "[ADD] device %s added\n", dev_node);
+				time_log();
+				printf("[ADD] device %s added\n", dev_node);
 
 				if(!is_mounted(dev_node, NULL)) {
 					mount_point = generate_mount_point(udevice);
@@ -280,7 +301,7 @@ int main(int argc, char **argv)
 				}
 			}
 			else if(strcmp("remove", udev_device_get_action(udevice)) == 0) {
-				time_log(stdout);
+				time_log();
 				printf("[REMOVE] device %s removed\n", dev_node);
 				unmount_device(udevice);
 			}
@@ -291,9 +312,6 @@ int main(int argc, char **argv)
 
 	udev_monitor_unref(umon);
 	udev_unref(udev);
-
-	if(fd != -1)
-		close(fd);
 
 	return 0;
 }
