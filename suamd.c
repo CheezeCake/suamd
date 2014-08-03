@@ -2,9 +2,11 @@
 
 #include <error.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <libudev.h>
 #include <linux/limits.h>
 #include <mntent.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +16,8 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+#define LOGFILE "/var/log/suamd"
 
 #define MOUNT_PREFIX "/media/"
 #define NTFS3G_FS_TYPE "ntfs-3g"
@@ -187,17 +191,57 @@ void create_prefix()
 	}
 }
 
-void time_log(FILE *out)
+void time_log(void)
 {
 	time_t timev = time(NULL);
 	struct tm *t;
 
 	t = gmtime(&timev);
-	fprintf(out, "[%.2d/%.2d/%.2d %.2d:%.2d:%.2d] : ", t->tm_mday, t->tm_mon,
+	printf("[%.2d/%.2d/%.2d %.2d:%.2d:%.2d] : ", t->tm_mday, t->tm_mon,
 			1900 + t->tm_year, t->tm_hour, t->tm_min, t->tm_sec);
 }
 
-int main(void)
+void daemonize(void)
+{
+	int logfd;
+	pid_t pid;
+
+	pid = fork();
+	if(pid == -1) {
+		perror("daemonize");
+		exit(EXIT_FAILURE);
+	}
+	else if(pid != 0) {
+		_exit(0);
+	}
+
+	if(setsid() == -1) {
+		perror("setsid");
+		exit(EXIT_FAILURE);
+	}
+
+	umask(0);
+
+	close(STDIN_FILENO);
+	if(open("/dev/null", O_RDONLY) == -1) {
+		perror("stdin redirect");
+		exit(EXIT_FAILURE);
+	}
+
+	if((logfd = open(LOGFILE, O_CREAT | O_RDWR | O_APPEND,
+			S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)) == -1) {
+		perror("logfile");
+		exit(EXIT_FAILURE);
+	}
+
+	printf("\b");
+	dup2(logfd, STDERR_FILENO);
+	dup2(logfd, STDOUT_FILENO);
+	close(logfd);
+
+}
+
+int main(int argc, char **argv)
 {
 	struct udev *udev;
 	struct udev_monitor *umon;
@@ -210,6 +254,9 @@ int main(void)
 				"installed with the setuid bit set)\n");
 		return 1;
 	}
+
+	if(argc == 2 && strcmp(argv[1], "-d") == 0)
+		daemonize();
 
 	umask(0);
 
@@ -237,7 +284,7 @@ int main(void)
 			dev_node = udev_device_get_devnode(udevice);
 
 			if(strcmp("add", udev_device_get_action(udevice)) == 0) {
-				time_log(stdout);
+				time_log();
 				printf("[ADD] device %s added\n", dev_node);
 
 				if(!is_mounted(dev_node, NULL)) {
@@ -255,7 +302,7 @@ int main(void)
 				}
 			}
 			else if(strcmp("remove", udev_device_get_action(udevice)) == 0) {
-				time_log(stdout);
+				time_log();
 				printf("[REMOVE] device %s removed\n", dev_node);
 				unmount_device(udevice);
 			}
