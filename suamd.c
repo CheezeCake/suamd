@@ -17,7 +17,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define LOGFILE "log"
+#define LOGFILE "/var/log/suamd"
 
 #define MOUNT_PREFIX "/media/"
 #define NTFS3G_FS_TYPE "ntfs-3g"
