@@ -1,5 +1,6 @@
 CC=gcc
 CFLAGS=-std=c89 -W -Wall -pedantic
+USRCFLAGS=
 LDFLAGS=-ludev
 PREFIX=/usr/local
 
@@ -10,7 +11,7 @@ suamd: suamd.o
 	$(CC) suamd.o -o suamd $(LDFLAGS)
 
 suamd.o: suamd.c
-	$(CC) $(CFLAGS) -c suamd.c -o suamd.o
+	$(CC) $(CFLAGS) $(USRCFLAGS) -c suamd.c -o suamd.o
 
 clean:
 	rm -f suamd.o
