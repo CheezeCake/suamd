@@ -234,6 +234,7 @@ void daemonize(void)
 		exit(EXIT_FAILURE);
 	}
 
+	printf("\b");
 	dup2(logfd, STDERR_FILENO);
 	dup2(logfd, STDOUT_FILENO);
 	close(logfd);
