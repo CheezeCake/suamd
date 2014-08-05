@@ -41,14 +41,14 @@ int is_mount_point(const char *path, char **dev_node)
 	struct mntent *partition;
 	int ret = 0;
 
-	if(dev_node)
+	if (dev_node)
 		*dev_node = NULL;
 
-	if((mtab = setmntent("/etc/mtab", "r"))) {
-		while((partition = getmntent(mtab)) && !ret) {
-			if(strcmp(partition->mnt_dir, path) == 0) {
+	if ((mtab = setmntent("/etc/mtab", "r"))) {
+		while ((partition = getmntent(mtab)) && !ret) {
+			if (strcmp(partition->mnt_dir, path) == 0) {
 				ret = 1;
-				if(dev_node)
+				if (dev_node)
 					*dev_node = strdup(partition->mnt_fsname);
 			}
 		}
@@ -66,15 +66,15 @@ char* generate_mount_point(struct udev_device *device)
 	size_t len;
 
 	id_fs_label = udev_device_get_property_value(device, "ID_FS_LABEL");
-	if(!id_fs_label)
+	if (!id_fs_label)
 		id_fs_label = udev_device_get_property_value(device, "ID_MODEL");
-	if(!id_fs_label)
+	if (!id_fs_label)
 		id_fs_label = EXTRA_CHARACTER;
 
 	strncat(mount_point, id_fs_label, PATH_MAX - strlen(mount_point) - 1);
 	len = strlen(mount_point);
 
-	while(path_exist(mount_point) &&
+	while (path_exist(mount_point) &&
 			(is_mount_point(mount_point, NULL) || !is_directory(mount_point))
 			&& len < PATH_MAX) {
 		strncat(mount_point, EXTRA_CHARACTER, sizeof(EXTRA_CHARACTER));
@@ -90,14 +90,14 @@ int is_mounted(const char *dev_node, char **mount_point)
 	struct mntent *partition;
 	int ret = 0;
 
-	if(mount_point)
+	if (mount_point)
 		*mount_point = NULL;
 
-	if((mtab = setmntent("/etc/mtab", "r"))) {
-		while((partition = getmntent(mtab)) && !ret) {
-			if(strcmp(partition->mnt_fsname, dev_node) == 0) {
+	if ((mtab = setmntent("/etc/mtab", "r"))) {
+		while ((partition = getmntent(mtab)) && !ret) {
+			if (strcmp(partition->mnt_fsname, dev_node) == 0) {
 				ret = 1;
-				if(mount_point)
+				if (mount_point)
 					*mount_point = strdup(partition->mnt_dir);
 			}
 		}
@@ -116,23 +116,23 @@ void mount_device(struct udev_device *device, const char *mount_point)
 	pid_t p;
 
 #ifdef USE_NTFS3G
-	if(strcmp(fs_type, "ntfs") == 0)
+	if (strcmp(fs_type, "ntfs") == 0)
 		fs_type = NTFS3G_FS_TYPE;
 #endif
 
-	if(mkdir(mount_point, S_IRWXU | S_IRGRP | S_IXGRP) == -1 &&
+	if (mkdir(mount_point, S_IRWXU | S_IRGRP | S_IXGRP) == -1 &&
 			errno != EEXIST) {
 		error(0, errno, "Failed to create mount point %s", mount_point);
 	}
 	else {
 		p = fork();
 
-		if(p == -1) {
+		if (p == -1) {
 			perror("fork syscall error");
 			fprintf(stderr, "unplug and plug you device again to retry\n");
 			return;
 		}
-		else if(p == 0) {
+		else if (p == 0) {
 			setuid(0);
 			execl("/sbin/mount", "/sbin/mount", "-t", fs_type, devnode,
 					mount_point, NULL);
@@ -142,7 +142,7 @@ void mount_device(struct udev_device *device, const char *mount_point)
 
 		wait(&status);
 
-		if(status != 0)
+		if (status != 0)
 			fprintf(stderr, "Failed to mount %s on %s", devnode, mount_point);
 		else
 			printf("Device %s successfuly mounted on %s\n", devnode,
@@ -155,9 +155,9 @@ void unmount_device(struct udev_device *device)
 	const char *dev_node = udev_device_get_devnode(device);
 	char *mount_point = NULL;
 
-	if(is_mounted(dev_node, &mount_point)) {
-		if(mount_point) {
-			if(umount(mount_point) == -1) {
+	if (is_mounted(dev_node, &mount_point)) {
+		if (mount_point) {
+			if (umount(mount_point) == -1) {
 				error(0, errno,
 						"Failed to unmount device %s (mount point: %s)\n",
 						dev_node, mount_point);
@@ -167,7 +167,7 @@ void unmount_device(struct udev_device *device)
 						dev_node, mount_point);
 
 #ifdef REMOVE_MNTPOINT
-				if(rmdir(mount_point) == -1)
+				if (rmdir(mount_point) == -1)
 					error(0, errno, "Failed to delete %s\n", mount_point);
 #endif
 			}
@@ -177,12 +177,12 @@ void unmount_device(struct udev_device *device)
 	}
 }
 
-void create_prefix()
+void create_prefix(void)
 {
-	if(path_exist(MOUNT_PREFIX))
+	if (path_exist(MOUNT_PREFIX))
 		return;
 
-	if(mkdir(MOUNT_PREFIX, S_IRWXU |
+	if (mkdir(MOUNT_PREFIX, S_IRWXU |
 				S_IRGRP | S_IXGRP |
 				S_IROTH | S_IXOTH) == -1 && errno != EEXIST) {
 		error(0, errno, "Failed to create prefix directory for mounting (%s)\n",
@@ -207,15 +207,15 @@ void daemonize(void)
 	pid_t pid;
 
 	pid = fork();
-	if(pid == -1) {
+	if (pid == -1) {
 		perror("daemonize");
 		exit(EXIT_FAILURE);
 	}
-	else if(pid != 0) {
+	else if (pid != 0) {
 		_exit(0);
 	}
 
-	if(setsid() == -1) {
+	if (setsid() == -1) {
 		perror("setsid");
 		exit(EXIT_FAILURE);
 	}
@@ -223,12 +223,12 @@ void daemonize(void)
 	umask(0);
 
 	close(STDIN_FILENO);
-	if(open("/dev/null", O_RDONLY) == -1) {
+	if (open("/dev/null", O_RDONLY) == -1) {
 		perror("stdin redirect");
 		exit(EXIT_FAILURE);
 	}
 
-	if((logfd = open(LOGFILE, O_CREAT | O_RDWR | O_APPEND,
+	if ((logfd = open(LOGFILE, O_CREAT | O_RDWR | O_APPEND,
 			S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)) == -1) {
 		perror("logfile");
 		exit(EXIT_FAILURE);
@@ -249,27 +249,27 @@ int main(int argc, char **argv)
 	char *mount_point;
 	const char *dev_node;
 
-	if(geteuid() != 0) {
+	if (geteuid() != 0) {
 		fprintf(stderr, "This program needs root privileges (make sure it is "
 				"installed with the setuid bit set)\n");
 		return 1;
 	}
 
-	if(argc == 2 && strcmp(argv[1], "-d") == 0)
+	if (argc == 2 && strcmp(argv[1], "-d") == 0)
 		daemonize();
 
 	umask(0);
 
 	udev = udev_new();
 
-	if(!udev) {
+	if (!udev) {
 		fprintf(stderr, "Failed to create udev\n");
 		return 2;
 	}
 
 	umon = udev_monitor_new_from_netlink(udev, "udev");
 
-	if(!umon) {
+	if (!umon) {
 		fprintf(stderr, "Failed to create udev_monitor\n");
 		return 2;
 	}
@@ -277,20 +277,20 @@ int main(int argc, char **argv)
 	udev_monitor_filter_add_match_subsystem_devtype(umon, "block", "partition");
 	udev_monitor_enable_receiving(umon);
 
-	while(1) {
+	while (1) {
 		udevice = udev_monitor_receive_device(umon);
 
-		if(udevice) {
+		if (udevice) {
 			dev_node = udev_device_get_devnode(udevice);
 
-			if(strcmp("add", udev_device_get_action(udevice)) == 0) {
+			if (strcmp("add", udev_device_get_action(udevice)) == 0) {
 				time_log();
 				printf("[ADD] device %s added\n", dev_node);
 
-				if(!is_mounted(dev_node, NULL)) {
+				if (!is_mounted(dev_node, NULL)) {
 					mount_point = generate_mount_point(udevice);
 
-					if(mount_point) {
+					if (mount_point) {
 						mount_device(udevice, mount_point);
 						free(mount_point);
 					}
@@ -301,7 +301,7 @@ int main(int argc, char **argv)
 					}
 				}
 			}
-			else if(strcmp("remove", udev_device_get_action(udevice)) == 0) {
+			else if (strcmp("remove", udev_device_get_action(udevice)) == 0) {
 				time_log();
 				printf("[REMOVE] device %s removed\n", dev_node);
 				unmount_device(udevice);
