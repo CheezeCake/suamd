@@ -122,7 +122,7 @@ void mount_device(struct udev_device *device, const char *mount_point)
 
 	if (mkdir(mount_point, S_IRWXU | S_IRGRP | S_IXGRP) == -1 &&
 			errno != EEXIST) {
-		error(0, errno, "Failed to create mount point %s", mount_point);
+		error(0, errno, "Failed to create mount point %s\n", mount_point);
 	}
 	else {
 		p = fork();
@@ -143,7 +143,7 @@ void mount_device(struct udev_device *device, const char *mount_point)
 		wait(&status);
 
 		if (status != 0)
-			fprintf(stderr, "Failed to mount %s on %s", devnode, mount_point);
+			fprintf(stderr, "Failed to mount %s on %s\n", devnode, mount_point);
 		else
 			printf("Device %s successfuly mounted on %s\n", devnode,
 					mount_point);
